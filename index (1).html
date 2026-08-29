@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Dibujando — juego multijugador</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root{
+  --ink:#1c1b18;
+  --board:#fbfaf5;
+  --board-soft:#f2f0e6;
+  --line:#e2dfd0;
+  --coral:#ff6b52;
+  --coral-dark:#e2523a;
+  --teal:#12968a;
+  --teal-dark:#0c7a70;
+  --gold:#eea52e;
+  --violet:#7c5ce0;
+  --shadow: rgba(28,27,24,.14);
+  --radius-blob: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(circle at 15% 10%, rgba(124,92,224,.06), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(18,150,138,.07), transparent 45%),
+    var(--board);
+  color:var(--ink);
+  font-family:'Manrope',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+#root{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+
+h1,h2,h3{font-family:'Caveat',cursive; font-weight:700; margin:0 0 4px;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ---------- top brand ---------- */
+.brandbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .pencil{font-size:30px;transform:rotate(-12deg);display:inline-block;}
+.brand h1{font-size:34px;line-height:1;}
+.brand .tagline{font-size:13px;color:#6b6a63;margin-top:-2px;}
+
+/* ---------- wavy divider ---------- */
+.wavy{width:100%;height:14px;margin:18px 0;background:
+  repeating-linear-gradient(115deg, transparent 0 8px, var(--line) 8px 9px);
+  opacity:.6;border-radius:8px;}
+
+/* ---------- cards / buttons ---------- */
+.card{
+  background:var(--board);
+  border:2px solid var(--ink);
+  border-radius:var(--radius-blob);
+  box-shadow:6px 6px 0 var(--shadow);
+  padding:26px;
+}
+.card + .card{margin-top:18px;}
+.btn{
+  font-family:'Manrope',sans-serif;
+  font-weight:700;
+  font-size:15px;
+  border:2px solid var(--ink);
+  background:var(--board);
+  color:var(--ink);
+  padding:11px 20px;
+  border-radius:var(--radius-blob);
+  cursor:pointer;
+  box-shadow:3px 3px 0 var(--ink);
+  transition:transform .08s ease;
+  user-select:none;
+}
+.btn:hover{transform:translate(-1px,-1px);}
+.btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 var(--ink);}
+.btn.primary{background:var(--coral);color:#fff;}
+.btn.teal{background:var(--teal);color:#fff;}
+.btn.violet{background:var(--violet);color:#fff;}
+.btn.ghost{box-shadow:none;background:transparent;}
+.btn.small{padding:6px 12px;font-size:13px;border-radius:12px;}
+.btn.block{width:100%;}
+
+input[type=text], input[type=number]{
+  font-family:'Manrope',sans-serif;
+  font-size:16px;
+  padding:11px 14px;
+  border:2px solid var(--ink);
+  border-radius:14px;
+  background:#fff;
+  width:100%;
+  outline:none;
+}
+input[type=text]:focus,input[type=number]:focus{border-color:var(--teal);}
+label.field-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#6b6a63;display:block;margin-bottom:6px;}
+
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  border:2px solid var(--ink);border-radius:999px;
+  padding:6px 13px;font-size:13px;font-weight:700;cursor:pointer;
+  background:#fff;
+}
+.chip.active{background:var(--gold);}
+.chip.static{cursor:default;}
+
+.tabs{display:flex;gap:8px;margin-bottom:18px;}
+.tab{flex:1;text-align:center;padding:10px;border:2px solid var(--ink);border-radius:16px;cursor:pointer;font-weight:800;background:#fff;}
+.tab.active{background:var(--ink);color:var(--board);}
+
+.error-box{background:#fff0ee;border:2px dashed var(--coral-dark);border-radius:14px;padding:10px 14px;color:var(--coral-dark);font-weight:600;font-size:14px;margin-top:10px;}
+.warning-box{background:#fff8e6;border:2px dashed var(--gold);border-radius:14px;padding:10px 14px;color:#7a5310;font-weight:600;font-size:13px;margin-top:10px;line-height:1.45;}
+.hint{font-size:13px;color:#6b6a63;margin-top:8px;line-height:1.5;}
+
+/* ---------- sticky note room code ---------- */
+.sticky-code{
+  display:inline-block;
+  background:var(--gold);
+  border:2px solid var(--ink);
+  border-radius:4px 16px 4px 16px;
+  padding:10px 22px;
+  transform:rotate(-2deg);
+  box-shadow:4px 4px 0 var(--shadow);
+  font-family:'JetBrains Mono',monospace;
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:.12em;
+}
+
+/* ---------- lobby ---------- */
+.lobby-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+@media(max-width:760px){.lobby-grid{grid-template-columns:1fr;}}
+.player-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid var(--line);}
+.player-row:last-child{border-bottom:none;}
+.avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;border:2px solid var(--ink);flex-shrink:0;}
+.player-name{font-weight:700;flex:1;}
+.badge-host{font-size:10px;background:var(--violet);color:#fff;padding:2px 7px;border-radius:8px;font-weight:800;}
+.ready-dot{width:11px;height:11px;border-radius:50%;background:#d8d5c4;border:2px solid var(--ink);}
+.ready-dot.on{background:var(--teal);}
+
+/* ---------- game screen ---------- */
+.game-layout{display:grid;grid-template-columns:2.1fr 1fr;gap:16px;align-items:start;}
+@media(max-width:820px){.game-layout{grid-template-columns:1fr;}}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap;}
+.timerwrap{flex:1;min-width:160px;}
+.timer-track{height:16px;border:2px solid var(--ink);border-radius:10px;overflow:hidden;background:#fff;}
+.timer-fill{height:100%;background:var(--teal);transition:width .4s linear, background .3s;}
+.timer-fill.warn{background:var(--gold);}
+.timer-fill.danger{background:var(--coral);}
+.timer-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;margin-top:4px;}
+.wordbox{background:var(--ink);color:var(--board);border-radius:14px;padding:8px 16px;font-family:'JetBrains Mono',monospace;letter-spacing:.15em;font-weight:700;text-align:center;}
+.category-tag{font-size:12px;color:#6b6a63;text-align:center;margin-top:4px;}
+
+.canvas-wrap{background:#fff;border:2px solid var(--ink);border-radius:22px;box-shadow:6px 6px 0 var(--shadow);padding:10px;}
+#board{width:100%;aspect-ratio:4/3;display:block;border-radius:14px;background:#fff;touch-action:none;cursor:crosshair;}
+.toolbar{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+.swatch{width:26px;height:26px;border-radius:50%;border:2px solid var(--ink);cursor:pointer;}
+.swatch.selected{outline:3px solid var(--violet);outline-offset:2px;}
+input[type=range]{accent-color:var(--teal);}
+
+.sidebar-card{background:var(--board);border:2px solid var(--ink);border-radius:20px;padding:16px;margin-bottom:14px;}
+.sidebar-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#6b6a63;margin-bottom:10px;}
+.score-row{display:flex;align-items:center;gap:8px;padding:6px 0;}
+.score-row .pts{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.guess-tick{color:var(--teal);font-weight:800;}
+
+.guessbox{display:flex;gap:8px;margin-top:10px;}
+.guessbox input{flex:1;}
+.feedback-log{max-height:130px;overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.fmsg{font-size:13px;padding:6px 10px;border-radius:10px;background:var(--board-soft);}
+.fmsg.correct{background:#e4f6ef;color:var(--teal-dark);font-weight:700;}
+.fmsg.wrong{background:#fbeeee;color:var(--coral-dark);}
+
+.reveal-banner{background:var(--gold);border:2px solid var(--ink);border-radius:16px;padding:14px 18px;margin-bottom:14px;text-align:center;}
+.reveal-banner .answer{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;}
+
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:14px;margin:24px 0;}
+.podium .place{background:var(--board-soft);border:2px solid var(--ink);border-radius:14px 14px 0 0;padding:14px 16px;text-align:center;width:110px;}
+.podium .p1{height:150px;background:var(--gold);}
+.podium .p2{height:110px;}
+.podium .p3{height:80px;}
+.podium .medal{font-size:26px;}
+
+.small-muted{font-size:12px;color:#8b897f;}
+.center{text-align:center;}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================= WORD BANK ============================= */
+const CATEGORIES = {
+  "Cine y producción audiovisual": ["CÁMARA","PROYECTOR","CLAQUETA","PANTALLA","MICRÓFONO","GUION","DIRECTOR","PALOMITAS","TRÍPODE","SUBTÍTULOS"],
+  "Animales": ["ELEFANTE","JIRAFA","PINGÜINO","TIBURÓN","MARIPOSA","CANGURO","PULPO","COCODRILO","BÚHO","TORTUGA"],
+  "Comida": ["PIZZA","TACO","HELADO","SANDÍA","HAMBURGUESA","SUSHI","PASTEL","EMPANADA","PAN","CHOCOLATE"],
+  "Objetos cotidianos": ["PARAGUAS","BICICLETA","RELOJ","LLAVE","MOCHILA","LÁMPARA","ESPEJO","TIJERAS","SOMBRERO","ESCALERA"],
+  "Deportes": ["FÚTBOL","BALONCESTO","TENIS","NATACIÓN","CICLISMO","BOXEO","SURF","ESQUÍ","VOLEIBOL","PATINAJE"],
+  "Lugares": ["PLAYA","VOLCÁN","CASTILLO","AEROPUERTO","BIBLIOTECA","GRANJA","DESIERTO","MONTAÑA","ACUARIO","FARO"]
+};
+const AVATAR_COLORS = ["#ff6b52","#12968a","#eea52e","#7c5ce0","#3f8efc","#e0538f","#5cb85c","#a9762f"];
+const TURN_MS = 90000;
+const REVEAL_MS = 5000;
+const MAX_PLAYERS = 8;
+
+/* ============================= STORAGE HELPERS ============================= */
+/*
+  Claude Artifacts provides window.storage only when persistent storage is
+  available. If that backend is temporarily unavailable, this game now falls
+  back to localStorage instead of flooding the console with errors.
+
+  IMPORTANT: localStorage fallback is only shared between tabs/windows of the
+  same browser profile. True multiplayer between different devices still needs
+  Claude shared storage to be available.
+*/
+const STORAGE_STATE = {
+  claudeEnabled: !!(window.storage && window.storage.get && window.storage.set),
+  retryAfter: 0,
+  warned: false,
+  sharedFallbackUsed: false,
+  lastError: ""
+};
+
+const LOCAL_PREFIX = "dibujando-v2:";
+let storageChannel = null;
+try{
+  if("BroadcastChannel" in window) storageChannel = new BroadcastChannel("dibujando-v2-storage");
+}catch(_){}
+
+function localKey(key, shared){
+  return LOCAL_PREFIX + (shared ? "shared:" : "private:") + key;
+}
+
+function markStorageFailure(e, shared){
+  STORAGE_STATE.lastError = (e && e.message) ? e.message : String(e || "Error de almacenamiento");
+  STORAGE_STATE.retryAfter = Date.now() + 15000; // avoid hammering a failing backend
+  if(shared) STORAGE_STATE.sharedFallbackUsed = true;
+  if(!STORAGE_STATE.warned){
+    STORAGE_STATE.warned = true;
+    console.warn("Claude storage no disponible temporalmente; se usará respaldo local.", e);
+  }
+}
+
+function canUseClaudeStorage(){
+  return STORAGE_STATE.claudeEnabled && Date.now() >= STORAGE_STATE.retryAfter;
+}
+
+function localGetValue(key, shared){
+  try{
+    const v = localStorage.getItem(localKey(key, shared));
+    return v === null ? null : v;
+  }catch(_){
+    return null;
+  }
+}
+
+function localSetValue(key, value, shared){
+  try{
+    localStorage.setItem(localKey(key, shared), value);
+    if(storageChannel) storageChannel.postMessage({key, shared, t:Date.now()});
+    return true;
+  }catch(_){
+    return false;
+  }
+}
+
+async function storeGet(key, shared){
+  // Prefer Claude's persistent store. When it fails, read our local mirror.
+  if(canUseClaudeStorage()){
+    try{
+      const r = await window.storage.get(key, !!shared);
+      if(r && typeof r.value === "string"){
+        localSetValue(key, r.value, shared); // mirror last known good value
+        return r.value;
+      }
+    }catch(e){
+      markStorageFailure(e, shared);
+    }
+  }
+  return localGetValue(key, shared);
+}
+
+async function storeSet(key, value, shared){
+  // Always keep a local mirror so a transient Claude failure does not destroy
+  // the current session.
+  const localOk = localSetValue(key, value, shared);
+
+  if(canUseClaudeStorage()){
+    try{
+      await window.storage.set(key, value, !!shared);
+      return true;
+    }catch(e){
+      markStorageFailure(e, shared);
+    }
+  }else if(shared){
+    STORAGE_STATE.sharedFallbackUsed = true;
+  }
+
+  return localOk;
+}
+
+async function getRoom(code){
+  const raw = await storeGet("room-"+code, true);
+  try{ return raw ? JSON.parse(raw) : null; }
+  catch(_){ return null; }
+}
+
+async function setRoom(code, room){
+  return storeSet("room-"+code, JSON.stringify(room), true);
+}
+
+async function getDraw(code){
+  const raw = await storeGet("draw-"+code, true);
+  try{ return raw ? JSON.parse(raw) : {turn:0, strokes:[]}; }
+  catch(_){ return {turn:0, strokes:[]}; }
+}
+
+async function setDraw(code, doc){
+  return storeSet("draw-"+code, JSON.stringify(doc), true);
+}
+
+async function setGuessDoc(code, playerId, doc){
+  return storeSet("guess-"+code+"-"+playerId, JSON.stringify(doc), false);
+}
+
+async function getGuessDoc(code, playerId){
+  const raw = await storeGet("guess-"+code+"-"+playerId, false);
+  try{ return raw ? JSON.parse(raw) : {history:[]}; }
+  catch(_){ return {history:[]}; }
+}
+
+async function updateRoom(code, mutator){
+  const current = await getRoom(code);
+  if(current === null) return null;
+
+  const next = mutator(JSON.parse(JSON.stringify(current)));
+  if(next === null) return current;
+
+  let ok = await setRoom(code, next);
+  if(!ok){
+    await new Promise(r=>setTimeout(r, 700));
+    ok = await setRoom(code, next);
+  }
+  // Do not pretend the update succeeded when both writes failed.
+  return ok ? next : null;
+}
+
+function storageNotice(){
+  if(!STORAGE_STATE.sharedFallbackUsed) return "";
+  return `<div class="warning-box">⚠️ El almacenamiento compartido de Claude no está respondiendo. El juego continúa en <b>modo local</b>, por lo que funciona entre pestañas de este mismo navegador, pero otros dispositivos no podrán unirse hasta que el almacenamiento compartido vuelva a estar disponible.</div>`;
+}
+
+function uid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "p" + Math.random().toString(36).slice(2) + Date.now();
+}
+function genCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for(let i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function normalize(str){
+  return (str||"").toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+}
+function colorFor(id, list){
+  const idx = list.findIndex(p=>p.id===id);
+  return AVATAR_COLORS[idx>=0 ? idx % AVATAR_COLORS.length : 0];
+}
+function initials(name){
+  return (name||"?").trim().slice(0,2).toUpperCase();
+}
+function pointsForPosition(pos){
+  return Math.max(10, 100 - (pos-1)*20);
+}
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ============================= APP STATE ============================= */
+const App = {
+  playerId: uid(),
+  playerName: "",
+  roomCode: null,
+  isHost: false,
+  screen: "home",       // home | lobby | game | results
+  room: null,
+  drawDoc: null,
+  guessDoc: {history:[]},
+  errorMsg: "",
+  loading: false,
+  joinMode: false,
+  brushColor: "#1c1b18",
+  brushSize: 6,
+  localStrokes: [],
+  lastFlushedCount: 0,
+  currentStroke: null,
+  lastTurnNumber: -1,
+  lastRole: null,
+  pollTimer: null,
+  flushTimer: null,
+  ctx: null,
+  selectedCategories: Object.keys(CATEGORIES).slice(),
+  roundsChoice: 3
+};
+
+const root = document.getElementById("root");
+
+/* ============================= RENDER ROUTER ============================= */
+function render(){
+  if(App.screen === "home") root.innerHTML = renderHome();
+  else if(App.screen === "lobby") root.innerHTML = renderLobby();
+  else if(App.screen === "game") root.innerHTML = renderGame();
+  else if(App.screen === "results") root.innerHTML = renderResults();
+  attachHandlers();
+  if(App.screen === "game") setTimeout(initCanvas, 0);
+}
+
+/* ============================= HOME ============================= */
+function renderHome(){
+  return `
+  <div class="brandbar">
+    <div class="brand"><span class="pencil">✏️</span><div><h1>Dibujando</h1><div class="tagline">dibuja, adivina, gana puntos — en vivo con tus amigos</div></div></div>
+  </div>
+
+  <div class="card">
+    <label class="field-label">Tu nombre</label>
+    <input type="text" id="nameInput" maxlength="18" placeholder="¿Cómo te llamas?" value="${escapeHtml(App.playerName)}" />
+
+    <div class="tabs" style="margin-top:20px;">
+      <div class="tab ${!App.joinMode?'active':''}" data-action="mode-create">Crear sala</div>
+      <div class="tab ${App.joinMode?'active':''}" data-action="mode-join">Unirse a una sala</div>
+    </div>
+
+    ${App.joinMode ? `
+      <label class="field-label">Código de sala</label>
+      <input type="text" id="codeInput" maxlength="6" placeholder="ABC123" value="${escapeHtml(App.roomCode||'')}" style="text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;" />
+      <button class="btn primary block" style="margin-top:14px;" data-action="join-room" ${App.loading?'disabled':''}>${App.loading?'Entrando…':'Entrar a la sala'}</button>
+    ` : `
+      <button class="btn primary block" style="margin-top:20px;" data-action="create-room" ${App.loading?'disabled':''}>${App.loading?'Creando…':'Crear sala nueva'}</button>
+    `}
+    ${App.errorMsg ? `<div class="error-box">${escapeHtml(App.errorMsg)}</div>` : ""}
+    ${storageNotice()}
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:22px;">Cómo se juega</h3>
+    <div class="hint">
+      Una persona dibuja un concepto secreto mientras el resto adivina en su propio chat privado. Cada turno dura 90&nbsp;segundos.
+      Quien acierte primero gana más puntos — el turno sigue activo hasta que todos acierten o se acabe el tiempo.
+      Nadie ve las respuestas de los demás, así que copiar no sirve de nada.
+    </div>
+  </div>
+  `;
+}
+
+/* ============================= LOBBY ============================= */
+function renderLobby(){
+  const room = App.room;
+  if(!room) return `<div class="card center">Cargando sala…</div>`;
+  const me = room.players.find(p=>p.id===App.playerId);
+  const allReady = room.players.length>=2 && room.players.every(p=>p.ready);
+  const link = location.href.split('#')[0] + '#room=' + room.code;
+
+  return `
+  <div class="brandbar">
+    <div class="brand"><span class="pencil">✏️</span><div><h1>Dibujando</h1><div class="tagline">sala de espera</div></div></div>
+    <button class="btn ghost small" data-action="leave-room">Salir</button>
+  </div>
+
+  <div class="card center">
+    <div class="small-muted" style="margin-bottom:8px;">CÓDIGO DE SALA</div>
+    <div class="sticky-code">${room.code}</div>
+    <div class="row-between" style="justify-content:center;margin-top:16px;gap:10px;">
+      <button class="btn small" data-action="copy-code">📋 Copiar código</button>
+      <button class="btn small" data-action="copy-link">📤 Copiar invitación</button>
+    </div>
+    <div class="hint">Comparte el código o usa “Copiar invitación”. El enlace abrirá este juego y dejará listo el código de sala para que la otra persona pueda intentar unirse directamente.</div>
+  </div>
+
+  <div class="wavy"></div>
+
+  <div class="lobby-grid">
+    <div class="card">
+      <h3 style="font-size:20px;">Jugadores (${room.players.length}/${MAX_PLAYERS})</h3>
+      <div>
+        ${room.players.map(p=>`
+          <div class="player-row">
+            <div class="avatar" style="background:${colorFor(p.id, room.players)}">${initials(p.name)}</div>
+            <div class="player-name">${escapeHtml(p.name)} ${p.id===room.hostId?'<span class="badge-host">ANFITRIÓN</span>':''} ${p.id===App.playerId?'<span class="small-muted">(tú)</span>':''}</div>
+            <div class="ready-dot ${p.ready?'on':''}" title="${p.ready?'Listo':'No listo'}"></div>
+          </div>
+        `).join("")}
+      </div>
+      ${me ? `<button class="btn ${me.ready?'teal':'primary'} block" style="margin-top:16px;" data-action="toggle-ready">${me.ready?'✓ Estoy listo':'Marcar como listo'}</button>` : ''}
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:20px;">Configuración</h3>
+      <label class="field-label" style="margin-top:6px;">Rondas (cada jugador dibuja una vez por ronda)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${[2,3,4,5].map(n=>`<div class="chip ${room.config.rounds===n?'active':''} ${App.isHost?'':'static'}" ${App.isHost?`data-action="set-rounds" data-n="${n}"`:''}>${n}</div>`).join("")}
+      </div>
+      <label class="field-label" style="margin-top:16px;">Categorías</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${Object.keys(CATEGORIES).map(c=>`<div class="chip ${room.config.categories.includes(c)?'active':''} ${App.isHost?'':'static'}" ${App.isHost?`data-action="toggle-category" data-c="${escapeHtml(c)}"`:''}>${c}</div>`).join("")}
+      </div>
+      ${!App.isHost ? `<div class="hint">Solo el anfitrión puede cambiar la configuración.</div>` : ''}
+
+      <div class="wavy"></div>
+      ${App.isHost ? `
+        <button class="btn primary block" data-action="start-game" ${allReady?'':'disabled'}>Iniciar partida</button>
+        ${!allReady ? `<div class="hint">Se necesitan al menos 2 jugadores y que todos marquen "listo".</div>` : ''}
+        <button class="btn ghost small block" style="margin-top:10px;" data-action="close-room">Cerrar sala</button>
+      ` : `<div class="hint">Esperando a que el anfitrión inicie la partida…</div>`}
+    </div>
+  </div>
+  ${App.errorMsg ? `<div class="error-box">${escapeHtml(App.errorMsg)}</div>` : ""}
+  ${storageNotice()}
+  `;
+}
+
+/* ============================= GAME ============================= */
+function renderGame(){
+  const room = App.room;
+  if(!room) return `<div class="card center">Cargando partida…</div>`;
+  const isDrawer = room.currentDrawerId === App.playerId;
+  const me = room.players.find(p=>p.id===App.playerId);
+  const revealed = room.status === "revealed";
+
+  const scoreboardHtml = room.players.slice().sort((a,b)=>b.score-a.score).map(p=>`
+    <div class="score-row">
+      <div class="avatar" style="width:26px;height:26px;font-size:11px;background:${colorFor(p.id, room.players)}">${initials(p.name)}</div>
+      <div>${escapeHtml(p.name)} ${p.id===room.currentDrawerId?'✏️':''} ${room.correctGuessers.some(g=>g.playerId===p.id)?'<span class="guess-tick">✓</span>':''}</div>
+      <div class="pts">${p.score}</div>
+    </div>
+  `).join("");
+
+  let mainPanel;
+  if(revealed){
+    const order = room.correctGuessers.slice().sort((a,b)=>a.position-b.position);
+    mainPanel = `
+      <div class="reveal-banner">
+        <div class="small-muted">LA RESPUESTA ERA</div>
+        <div class="answer">${escapeHtml(room.revealedAnswer||"")}</div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:20px;">Orden en que acertaron</h3>
+        ${order.length===0 ? `<div class="hint">Nadie acertó esta vez.</div>` :
+          order.map(g=>`<div class="score-row"><div>${g.position}.º — ${escapeHtml(g.name)}</div><div class="pts">+${g.points}</div></div>`).join("")}
+        <div class="hint" style="margin-top:10px;">Siguiente turno en unos segundos…</div>
+      </div>
+    `;
+  } else if(isDrawer){
+    mainPanel = `
+      <div class="wordbox">${escapeHtml(room.currentWord||"")}</div>
+      <div class="category-tag">${escapeHtml(room.category||"")} — ¡solo tú ves esto!</div>
+      <div class="canvas-wrap" style="margin-top:12px;">
+        <canvas id="board" width="800" height="600"></canvas>
+        <div class="toolbar">
+          ${["#1c1b18","#ff6b52","#12968a","#eea52e","#7c5ce0","#3f8efc"].map(c=>`<div class="swatch ${App.brushColor===c?'selected':''}" style="background:${c}" data-action="pick-color" data-c="${c}"></div>`).join("")}
+          <input type="range" min="2" max="26" value="${App.brushSize}" id="brushSize" style="width:90px;" />
+          <button class="btn small" data-action="undo-stroke">↩️ Deshacer</button>
+          <button class="btn small" data-action="clear-canvas">🧹 Borrar todo</button>
+        </div>
+      </div>
+    `;
+  } else {
+    const alreadyGuessed = room.correctGuessers.some(g=>g.playerId===App.playerId);
+    mainPanel = `
+      <div class="wordbox" style="letter-spacing:.05em;">${escapeHtml(room.players.find(p=>p.id===room.currentDrawerId)?.name||'')} está dibujando…</div>
+      <div class="category-tag">Categoría: ${escapeHtml(room.category||"")}</div>
+      <div class="canvas-wrap" style="margin-top:12px;">
+        <canvas id="board" width="800" height="600"></canvas>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="sidebar-title">¿Qué crees que está dibujando?</div>
+        <div class="guessbox">
+          <input type="text" id="guessInput" placeholder="${alreadyGuessed?'Ya acertaste — ¡espera al siguiente turno!':'Escribe tu respuesta…'}" ${alreadyGuessed?'disabled':''} maxlength="40" />
+          <button class="btn primary" data-action="submit-guess" ${alreadyGuessed?'disabled':''}>Enviar</button>
+        </div>
+        <div class="feedback-log" id="feedbackLog"></div>
+      </div>
+    `;
+  }
+
+  return `
+  <div class="brandbar">
+    <div class="brand"><span class="pencil">✏️</span><div><h1>Dibujando</h1><div class="tagline">ronda ${room.round} de ${room.config.rounds} · sala ${room.code}</div></div></div>
+    <button class="btn ghost small" data-action="leave-room">Salir</button>
+  </div>
+
+  <div class="topbar">
+    <div class="timerwrap">
+      <div class="timer-track"><div class="timer-fill" id="timerFill" style="width:100%;"></div></div>
+      <div class="timer-label" id="timerLabel">01:30</div>
+    </div>
+  </div>
+
+  <div class="game-layout">
+    <div>${mainPanel}</div>
+    <div>
+      <div class="sidebar-card">
+        <div class="sidebar-title">Clasificación</div>
+        ${scoreboardHtml}
+      </div>
+      ${App.isHost ? `<button class="btn ghost small block" data-action="close-room">Cerrar sala</button>` : ''}
+    </div>
+  </div>
+  `;
+}
+
+/* ============================= RESULTS ============================= */
+function renderResults(){
+  const room = App.room;
+  if(!room) return `<div class="card center">Cargando resultados…</div>`;
+  const ranked = room.players.slice().sort((a,b)=>b.score-a.score);
+  const [p1,p2,p3] = ranked;
+  return `
+  <div class="brandbar">
+    <div class="brand"><span class="pencil">🏆</span><div><h1>Dibujando</h1><div class="tagline">resultados finales</div></div></div>
+  </div>
+  <div class="card center">
+    <h2 style="font-size:28px;">¡Partida terminada!</h2>
+    <div class="podium">
+      ${p2?`<div class="place p2"><div class="medal">🥈</div>${escapeHtml(p2.name)}<div class="pts mono">${p2.score}</div></div>`:''}
+      ${p1?`<div class="place p1"><div class="medal">🥇</div>${escapeHtml(p1.name)}<div class="pts mono">${p1.score}</div></div>`:''}
+      ${p3?`<div class="place p3"><div class="medal">🥉</div>${escapeHtml(p3.name)}<div class="pts mono">${p3.score}</div></div>`:''}
+    </div>
+    <div style="max-width:340px;margin:0 auto;">
+      ${ranked.map((p,i)=>`<div class="score-row"><div>${i+1}.º ${escapeHtml(p.name)}</div><div class="pts">${p.score}</div></div>`).join("")}
+    </div>
+    <button class="btn primary" style="margin-top:20px;" data-action="leave-room">Salir al inicio</button>
+  </div>
+  `;
+}
+
+/* ============================= EVENT HANDLING ============================= */
+function attachHandlers(){
+  root.querySelectorAll("[data-action]").forEach(elm=>{
+    elm.addEventListener("click", onAction);
+  });
+  const nameInput = document.getElementById("nameInput");
+  if(nameInput) nameInput.addEventListener("input", e=> App.playerName = e.target.value);
+  const codeInput = document.getElementById("codeInput");
+  if(codeInput) codeInput.addEventListener("input", e=> App.roomCode = e.target.value.toUpperCase());
+  const guessInput = document.getElementById("guessInput");
+  if(guessInput){
+    guessInput.addEventListener("keydown", e=>{ if(e.key==="Enter") submitGuess(); });
+    renderFeedbackLog();
+  }
+  const brushSize = document.getElementById("brushSize");
+  if(brushSize) brushSize.addEventListener("input", e=> App.brushSize = parseInt(e.target.value,10));
+}
+
+async function onAction(e){
+  const el = e.currentTarget;
+  const action = el.dataset.action;
+  App.errorMsg = "";
+  if(action==="mode-create"){ App.joinMode=false; render(); }
+  else if(action==="mode-join"){ App.joinMode=true; render(); }
+  else if(action==="create-room") await createRoom();
+  else if(action==="join-room") await joinRoom();
+  else if(action==="leave-room") leaveRoom();
+  else if(action==="copy-code") copyText(App.room.code);
+  else if(action==="copy-link"){
+    const inviteUrl = location.origin + location.pathname + '#room=' + App.room.code;
+    copyText('🎨 ¡Únete a mi partida de Dibujando!\n' + inviteUrl + '\nCódigo de sala: ' + App.room.code);
+  }
+  else if(action==="toggle-ready") await toggleReady();
+  else if(action==="set-rounds") await setRounds(parseInt(el.dataset.n,10));
+  else if(action==="toggle-category") await toggleCategory(el.dataset.c);
+  else if(action==="start-game") await startGame();
+  else if(action==="close-room") await closeRoom();
+  else if(action==="pick-color"){ App.brushColor = el.dataset.c; render(); }
+  else if(action==="clear-canvas") clearCanvas();
+  else if(action==="undo-stroke") undoStroke();
+  else if(action==="submit-guess") submitGuess();
+}
+
+function copyText(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).catch(()=>{});
+  }
+}
+
+/* ============================= ROOM ACTIONS ============================= */
+async function createRoom(){
+  if(!App.playerName.trim()){ App.errorMsg="Escribe tu nombre primero."; render(); return; }
+  App.loading = true; render();
+  const code = genCode();
+  const room = {
+    code, __v: 1,
+    hostId: App.playerId,
+    status: "lobby",
+    players: [{id:App.playerId, name:App.playerName.trim(), ready:false, score:0}],
+    config: {rounds: App.roundsChoice, categories: App.selectedCategories.slice()},
+    turnOrder: [], turnIndex: 0, round: 1,
+    currentDrawerId: null, currentWord: null, category: null,
+    turnStartTime: null, turnNumber: 0,
+    correctGuessers: [], usedWords: [],
+    revealedAnswer: null, revealTime: null
+  };
+  const saved = await setRoom(code, room);
+  if(!saved){
+    App.loading = false;
+    App.errorMsg = "No se pudo guardar la sala. Recarga la página e inténtalo de nuevo.";
+    render();
+    return;
+  }
+  App.roomCode = code;
+  App.isHost = true;
+  App.room = room;
+  App.loading = false;
+  enterLobby();
+}
+
+async function joinRoom(){
+  const code = (App.roomCode||"").toUpperCase().trim();
+  if(!App.playerName.trim()){ App.errorMsg="Escribe tu nombre primero."; render(); return; }
+  if(!code){ App.errorMsg="Escribe el código de la sala."; render(); return; }
+  App.loading = true; render();
+  const room = await getRoom(code);
+  if(!room){
+    App.loading=false;
+    App.errorMsg = STORAGE_STATE.sharedFallbackUsed
+      ? "No se encontró la sala. El almacenamiento compartido de Claude está temporalmente indisponible; en modo local solo se pueden unir pestañas de este mismo navegador."
+      : "Esta sala no existe.";
+    render();
+    return;
+  }
+  if(room.status !== "lobby"){ App.loading=false; App.errorMsg="La partida ya comenzó y no admite nuevos jugadores."; render(); return; }
+  if(room.players.length >= MAX_PLAYERS){ App.loading=false; App.errorMsg="La sala está llena."; render(); return; }
+
+  const updated = await updateRoom(code, r=>{
+    if(r.status!=="lobby") return null;
+    if(!r.players.some(p=>p.id===App.playerId)){
+      r.players.push({id:App.playerId, name:App.playerName.trim(), ready:false, score:0});
+    }
+    r.__v = (r.__v||1)+1;
+    return r;
+  });
+  if(!updated){ App.loading=false; App.errorMsg="No fue posible unirse a la sala."; render(); return; }
+  App.roomCode = code;
+  App.isHost = (updated.hostId === App.playerId);
+  App.room = updated;
+  App.loading = false;
+  enterLobby();
+}
+
+function enterLobby(){
+  App.screen = "lobby";
+  render();
+  startPolling();
+}
+
+async function toggleReady(){
+  await updateRoom(App.roomCode, r=>{
+    const me = r.players.find(p=>p.id===App.playerId);
+    if(me) me.ready = !me.ready;
+    r.__v=(r.__v||1)+1;
+    return r;
+  });
+}
+
+async function setRounds(n){
+  if(!App.isHost) return;
+  await updateRoom(App.roomCode, r=>{ r.config.rounds=n; r.__v=(r.__v||1)+1; return r; });
+}
+async function toggleCategory(c){
+  if(!App.isHost) return;
+  await updateRoom(App.roomCode, r=>{
+    const idx = r.config.categories.indexOf(c);
+    if(idx>=0){ if(r.config.categories.length>1) r.config.categories.splice(idx,1); }
+    else r.config.categories.push(c);
+    r.__v=(r.__v||1)+1;
+    return r;
+  });
+}
+
+async function startGame(){
+  if(!App.isHost) return;
+  const started = await updateRoom(App.roomCode, r=>{
+    if(r.players.length<2 || !r.players.every(p=>p.ready)) return null;
+    r.status = "playing";
+    r.turnOrder = shuffle(r.players.map(p=>p.id));
+    r.turnIndex = 0; r.round = 1;
+    r.__v=(r.__v||1)+1;
+    return r;
+  });
+  if(!started || started.status!=="playing"){
+    App.errorMsg = "No fue posible iniciar la partida porque no se pudo actualizar la sala.";
+    render();
+    return;
+  }
+  App.room = started;
+  await hostStartTurn();
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+async function hostStartTurn(){
+  const room = await getRoom(App.roomCode);
+  if(!room) return;
+  const cats = room.config.categories.length ? room.config.categories : Object.keys(CATEGORIES);
+  const category = cats[Math.floor(Math.random()*cats.length)];
+  let pool = CATEGORIES[category].filter(w=>!room.usedWords.includes(w));
+  if(pool.length===0) pool = CATEGORIES[category];
+  const word = pool[Math.floor(Math.random()*pool.length)];
+  const drawerId = room.turnOrder[room.turnIndex % room.turnOrder.length];
+
+  await updateRoom(App.roomCode, r=>{
+    r.status = "playing";
+    r.currentDrawerId = drawerId;
+    r.currentWord = word;
+    r.category = category;
+    r.turnStartTime = Date.now();
+    r.turnNumber = (r.turnNumber||0)+1;
+    r.correctGuessers = [];
+    r.usedWords = (r.usedWords||[]).concat([word]);
+    r.revealedAnswer = null; r.revealTime = null;
+    r.__v=(r.__v||1)+1;
+    return r;
+  });
+  await setDraw(App.roomCode, {turn: (room.turnNumber||0)+1, strokes: []});
+}
+
+async function closeRoom(){
+  if(!App.isHost) return;
+  await updateRoom(App.roomCode, r=>{ r.status="closed"; r.__v=(r.__v||1)+1; return r; });
+  leaveRoom();
+}
+
+function leaveRoom(){
+  stopPolling();
+  App.screen = "home";
+  App.room = null;
+  App.roomCode = null;
+  App.isHost = false;
+  App.errorMsg = "";
+  App.lastTurnNumber = -1;
+  App.lastRole = null;
+  render();
+}
+
+/* ============================= POLLING / GAME LOOP ============================= */
+function startPolling(){
+  stopPolling();
+  poll();
+  App.pollTimer = setInterval(poll, 2500);
+}
+function stopPolling(){
+  if(App.pollTimer) clearInterval(App.pollTimer);
+  if(App.flushTimer) clearInterval(App.flushTimer);
+  App.pollTimer = App.flushTimer = null;
+}
+
+async function poll(){
+  if(!App.roomCode) return;
+  const room = await getRoom(App.roomCode);
+  if(!room){ return; }
+  if(room.status === "closed"){
+    App.errorMsg = "El anfitrión cerró la sala.";
+    leaveRoom();
+    return;
+  }
+  App.room = room;
+  App.isHost = (room.hostId === App.playerId);
+
+  if(App.isHost && (room.status==="playing" || room.status==="revealed")){
+    await hostLoop(room);
+  }
+
+  if(room.status === "lobby" && App.screen!=="lobby"){ App.screen="lobby"; }
+  if((room.status==="playing" || room.status==="revealed") && App.screen!=="game"){ App.screen="game"; App.lastTurnNumber=-1; }
+  if(room.status === "finished"){ App.screen="results"; render(); return; }
+
+  const isDrawer = room.currentDrawerId === App.playerId;
+  const roleChanged = App.lastRole !== isDrawer;
+  const turnChanged = App.lastTurnNumber !== room.turnNumber;
+
+  if(App.screen === "lobby"){ render(); return; }
+
+  if(App.screen === "game"){
+    if(turnChanged || roleChanged){
+      App.lastTurnNumber = room.turnNumber;
+      App.lastRole = isDrawer;
+      App.localStrokes = [];
+      App.lastFlushedCount = 0;
+      render();
+      App.guessDoc = {history:[]};
+      if(!isDrawer) startFlushWatcherForGuesses();
+    } else {
+      updateGameFragments();
+    }
+    if(!isDrawer && room.status==="playing"){
+      const gd = await getGuessDoc(App.roomCode, App.playerId);
+      if(gd.history.length !== App.guessDoc.history.length){
+        App.guessDoc = gd;
+        renderFeedbackLog();
+      }
+    }
+    if(!isDrawer){
+      const draw = await getDraw(App.roomCode);
+      if(draw.turn === room.turnNumber){
+        redrawCanvas(draw.strokes);
+      }
+    }
+  }
+}
+
+function startFlushWatcherForGuesses(){ /* placeholder for symmetry / future use */ }
+
+function updateGameFragments(){
+  const room = App.room;
+  if(!room) return;
+  // timer
+  const fill = document.getElementById("timerFill");
+  const label = document.getElementById("timerLabel");
+  if(fill && label && room.status==="playing"){
+    const elapsed = Date.now() - room.turnStartTime;
+    const remaining = Math.max(0, TURN_MS - elapsed);
+    const pct = Math.max(0, Math.min(100, (remaining/TURN_MS)*100));
+    fill.style.width = pct+"%";
+    fill.className = "timer-fill" + (pct<20?" danger":pct<50?" warn":"");
+    const secs = Math.ceil(remaining/1000);
+    label.textContent = String(Math.floor(secs/60)).padStart(2,"0")+":"+String(secs%60).padStart(2,"0");
+  }
+  // scoreboard + guess ticks — rebuild sidebar only
+  const sidebarCard = root.querySelector(".sidebar-card");
+  if(sidebarCard){
+    const scoreboardHtml = room.players.slice().sort((a,b)=>b.score-a.score).map(p=>`
+      <div class="score-row">
+        <div class="avatar" style="width:26px;height:26px;font-size:11px;background:${colorFor(p.id, room.players)}">${initials(p.name)}</div>
+        <div>${escapeHtml(p.name)} ${p.id===room.currentDrawerId?'✏️':''} ${room.correctGuessers.some(g=>g.playerId===p.id)?'<span class="guess-tick">✓</span>':''}</div>
+        <div class="pts">${p.score}</div>
+      </div>
+    `).join("");
+    sidebarCard.innerHTML = `<div class="sidebar-title">Clasificación</div>${scoreboardHtml}`;
+  }
+}
+
+function renderFeedbackLog(){
+  const log = document.getElementById("feedbackLog");
+  if(!log) return;
+  log.innerHTML = App.guessDoc.history.slice(-8).map(h=>
+    `<div class="fmsg ${h.correct?'correct':'wrong'}">${h.correct ? ('🎉 ¡CORRECTO! +'+h.points+' puntos') : ('❌ "'+escapeHtml(h.text)+'" — respuesta incorrecta')}</div>`
+  ).join("");
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ---------- host authoritative turn transitions ---------- */
+async function hostLoop(room){
+  if(!App.isHost || !App.roomCode || !room) return;
+  if(room.status === "playing"){
+    const elapsed = Date.now() - room.turnStartTime;
+    const guessersTotal = room.players.length - 1;
+    const allGuessed = guessersTotal>0 && room.correctGuessers.length >= guessersTotal;
+    if(elapsed >= TURN_MS || allGuessed){
+      await updateRoom(App.roomCode, r=>{
+        if(r.status!=="playing") return null;
+        const drawerBonus = r.correctGuessers.length*10;
+        const drawer = r.players.find(p=>p.id===r.currentDrawerId);
+        if(drawer) drawer.score += drawerBonus;
+        r.status = "revealed";
+        r.revealedAnswer = r.currentWord;
+        r.revealTime = Date.now();
+        r.__v=(r.__v||1)+1;
+        return r;
+      });
+    }
+  } else if(room.status === "revealed"){
+    if(Date.now() - (room.revealTime||0) >= REVEAL_MS){
+      const nextIndex = room.turnIndex+1;
+      if(nextIndex >= room.turnOrder.length){
+        const nextRound = room.round+1;
+        if(nextRound > room.config.rounds){
+          await updateRoom(App.roomCode, r=>{
+            if(r.status!=="revealed") return null;
+            r.status = "finished";
+            r.__v=(r.__v||1)+1;
+            return r;
+          });
+          return;
+        }
+        await updateRoom(App.roomCode, r=>{
+          if(r.status!=="revealed") return null;
+          r.turnIndex = 0; r.round = nextRound;
+          r.__v=(r.__v||1)+1;
+          return r;
+        });
+      } else {
+        await updateRoom(App.roomCode, r=>{
+          if(r.status!=="revealed") return null;
+          r.turnIndex = nextIndex;
+          r.__v=(r.__v||1)+1;
+          return r;
+        });
+      }
+      await hostStartTurn();
+    }
+  }
+}
+
+/* ============================= CANVAS / DRAWING ============================= */
+function initCanvas(){
+  const canvas = document.getElementById("board");
+  if(!canvas) return;
+  App.ctx = canvas.getContext("2d");
+  const room = App.room;
+  const isDrawer = room && room.currentDrawerId === App.playerId && room.status==="playing";
+  redrawCanvas(App.localStrokes);
+
+  if(!isDrawer) return;
+
+  let drawing = false;
+  function posFromEvent(e){
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX-rect.left)/rect.width, y: (clientY-rect.top)/rect.height };
+  }
+  function start(e){
+    e.preventDefault();
+    drawing = true;
+    const p = posFromEvent(e);
+    App.currentStroke = {color: App.brushColor, size: App.brushSize, points: [p]};
+  }
+  function move(e){
+    if(!drawing) return;
+    e.preventDefault();
+    const p = posFromEvent(e);
+    const pts = App.currentStroke.points;
+    const last = pts[pts.length-1];
+    const dx = p.x-last.x, dy = p.y-last.y;
+    if((dx*dx+dy*dy) < 0.00012) return; // skip points too close together
+    pts.push(p);
+    redrawCanvas(App.localStrokes.concat([App.currentStroke]));
+  }
+  function end(e){
+    if(!drawing) return;
+    drawing = false;
+    if(App.currentStroke && App.currentStroke.points.length>1){
+      App.localStrokes.push(App.currentStroke);
+    }
+    App.currentStroke = null;
+  }
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", end);
+  canvas.addEventListener("touchstart", start, {passive:false});
+  canvas.addEventListener("touchmove", move, {passive:false});
+  canvas.addEventListener("touchend", end);
+
+  if(App.flushTimer) clearInterval(App.flushTimer);
+  App.flushTimer = setInterval(flushStrokes, 1800);
+}
+
+async function flushStrokes(){
+  if(!App.room || App.room.currentDrawerId !== App.playerId) return;
+  const count = App.localStrokes.length + (App.currentStroke ? 1 : 0);
+  if(count === App.lastFlushedCount) return; // nothing new to send
+  const strokesToSend = App.localStrokes.slice();
+  let ok = await setDraw(App.roomCode, {turn: App.room.turnNumber, strokes: strokesToSend});
+  if(!ok){
+    await new Promise(r=>setTimeout(r, 500));
+    ok = await setDraw(App.roomCode, {turn: App.room.turnNumber, strokes: strokesToSend});
+  }
+  if(ok) App.lastFlushedCount = count;
+}
+
+function clearCanvas(){
+  App.localStrokes = [];
+  App.currentStroke = null;
+  App.lastFlushedCount = -1;
+  redrawCanvas([]);
+  flushStrokes();
+}
+function undoStroke(){
+  App.localStrokes.pop();
+  App.lastFlushedCount = -1;
+  redrawCanvas(App.localStrokes);
+  flushStrokes();
+}
+
+function redrawCanvas(strokes){
+  const canvas = document.getElementById("board");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  (strokes||[]).forEach(s=>{
+    if(!s.points || s.points.length<2) return;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.size;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    s.points.forEach((p,i)=>{
+      const x = p.x*canvas.width, y = p.y*canvas.height;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+}
+
+/* ============================= GUESSING ============================= */
+async function submitGuess(){
+  const input = document.getElementById("guessInput");
+  if(!input || input.disabled) return;
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = "";
+  const room = App.room;
+  if(!room || room.status!=="playing") return;
+  const correct = normalize(text) === normalize(room.currentWord);
+
+  if(!correct){
+    const gd = await getGuessDoc(App.roomCode, App.playerId);
+    gd.history.push({text, correct:false, time:Date.now()});
+    await setGuessDoc(App.roomCode, App.playerId, gd);
+    App.guessDoc = gd;
+    renderFeedbackLog();
+    return;
+  }
+
+  const updated = await updateRoom(App.roomCode, r=>{
+    if(r.status!=="playing") return null;
+    if(r.correctGuessers.some(g=>g.playerId===App.playerId)) return null;
+    const position = r.correctGuessers.length+1;
+    const remaining = TURN_MS - (Date.now()-r.turnStartTime);
+    const base = pointsForPosition(position);
+    const bonus = remaining > (TURN_MS-15000) ? 10 : 0;
+    const points = base+bonus;
+    r.correctGuessers.push({playerId:App.playerId, name:App.playerName, time:Date.now(), position, points});
+    const me = r.players.find(p=>p.id===App.playerId);
+    if(me) me.score += points;
+    r.__v=(r.__v||1)+1;
+    return r;
+  });
+
+  const gd = await getGuessDoc(App.roomCode, App.playerId);
+  if(updated && updated.correctGuessers.some(g=>g.playerId===App.playerId)){
+    const entry = updated.correctGuessers.find(g=>g.playerId===App.playerId);
+    gd.history.push({text, correct:true, points:entry.points, position:entry.position, time:Date.now()});
+  } else {
+    gd.history.push({text, correct:false, time:Date.now()});
+  }
+  await setGuessDoc(App.roomCode, App.playerId, gd);
+  App.guessDoc = gd;
+  App.room = updated || App.room;
+  renderFeedbackLog();
+  updateGameFragments();
+  if(updated && updated.correctGuessers.some(g=>g.playerId===App.playerId)){
+    render();
+  }
+}
+
+/* ============================= INIT / URL HASH ============================= */
+function initFromHash(){
+  const m = location.hash.match(/room=([A-Z0-9]+)/i);
+  if(m){ App.roomCode = m[1].toUpperCase(); App.joinMode = true; }
+}
+
+if(storageChannel){
+  storageChannel.addEventListener("message", ()=>{
+    // Sync same-browser tabs quickly when the fallback store is in use.
+    if(App.roomCode) poll();
+  });
+}
+
+initFromHash();
+render();
+
+})();
+</script>
+</body>
+</html>
